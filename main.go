@@ -4,47 +4,179 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 )
 
-var task string = "World!" //по умолчанию
+type Task struct {
+	ID     int    `json:"id"`
+	Text   string `json:"text"`
+	Status string `json:"status"`
+}
 
-// answ - http ответ
+var tasks = make(map[int]Task)
+var currentID = 1
+
 func handlerPOST(answ http.ResponseWriter, req *http.Request) {
+
+	//проверка совпадения метода
 	if req.Method != http.MethodPost {
 		http.Error(answ, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	var requestBody struct {
-		Task string `json:"task"`
-	}
-
-	err := json.NewDecoder(req.Body).Decode(&requestBody)
-	if err != nil {
+	//декодирование JSON
+	var newTask Task                                  //создание переменной для задачи на основе структуры Task
+	err := json.NewDecoder(req.Body).Decode(&newTask) //создание переменной, которая собирает ошибки
+	if err != nil {                                   //при декодировании
 		http.Error(answ, "Bad Request", http.StatusBadRequest)
 		return
 	}
-	task = requestBody.Task
 
-	//подготовка ответа
-	response := map[string]string{
-		"message": "Task изменен на: " + task, //"message" - ключ к http
+	//присвоение ID
+	newTask.ID = currentID
+	tasks[currentID] = newTask //добавление таски с айди в глобальную мапу "базу данных"
+	currentID++
+
+	//создание ответа
+	response := map[string]interface{}{ //использую значение interface{}, чтобы не возникло конфликтов типов
+		"message": "Task created",
+		"task":    newTask,
 	}
 
-	//заворачивание ответа в json
+	//завернуть в JSON и отправить
 	answ.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(answ).Encode(response)
 }
 
 func handlerGET(answ http.ResponseWriter, req *http.Request) {
+
+	//проверяем совместимость методов
 	if req.Method != http.MethodGet {
 		http.Error(answ, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	response := map[string]string{
-		"message": "hello, " + task,
+
+	//получение ID из URL
+	idStr := req.URL.Query().Get("id")
+
+	//проверка пустого ID? - выдача всех task
+	if idStr == "" {
+		answ.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(answ).Encode(tasks)
+		return
 	}
 
+	//преобразуем полученный string-ID в int-ID
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(answ, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	//поиск задачи по списку tasks
+	task, avail := tasks[id] // avail - показывает наличие задачи(bool)
+	if !avail {
+		http.Error(answ, "Task Not Found", http.StatusNotFound)
+	}
+
+	//заворачиваем в JSON и отправляем задачу клиенту
+	answ.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(answ).Encode(task)
+}
+
+func handlerPATCH(answ http.ResponseWriter, req *http.Request) {
+
+	//проверка метода на вшивость
+	if req.Method != http.MethodPatch {
+		http.Error(answ, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	//получаем ID задачи
+	idStr := req.URL.Query().Get("id")
+	if idStr == "" {
+		http.Error(answ, "Cannot be empty", http.StatusBadRequest)
+		return
+	}
+
+	//преобразую ID-string to ID-int
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(answ, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	//поиск задачи | есть/нет задача = avail(bool)
+	task, avail := tasks[id]
+	if !avail {
+		http.Error(answ, "Task Not Found", http.StatusNotFound)
+		return
+	}
+
+	//обработка и декодирование изменений в тасках
+	var updates struct {
+		Text   string `json:"text,omitempty"` // omitempty - позволяет пропускать пустые/не передаваемые зн-я
+		Status string `json:"status,omitempty"`
+	}
+	err = json.NewDecoder(req.Body).Decode(&updates)
+
+	//применяем обновления
+	if updates.Text != "" {
+		task.Text = updates.Text
+	}
+	if updates.Status != "" {
+		task.Status = updates.Status
+	}
+
+	//запись в "БД"
+	tasks[id] = task
+
+	//формируем и отправляем ответ
+	response := map[string]interface{}{
+		"message": "Task updated!",
+		"task":    task,
+	}
+	answ.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(answ).Encode(response)
+
+}
+
+func handlerDELETE(answ http.ResponseWriter, req *http.Request) {
+
+	//проверка метода
+	if req.Method != http.MethodDelete {
+		http.Error(answ, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	//прием ID
+	idStr := req.URL.Query().Get("id")
+	if idStr == "" {
+		http.Error(answ, "Cannot be empty", http.StatusBadRequest)
+		return
+	}
+
+	//преобразование id string - id int
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(answ, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	//найти задачу
+	_, avail := tasks[id] //'_' - потому что нет необходимости использовать таску
+	if !avail {
+		http.Error(answ, "Task Not Fount", http.StatusNotFound)
+		return
+	}
+
+	//удоли задачу!
+	delete(tasks, id)
+
+	//формулируем ответ чиста граматна
+	response := map[string]interface{}{
+		"message": "Task deleted!",
+	}
 	answ.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(answ).Encode(response)
 }
@@ -52,6 +184,8 @@ func handlerGET(answ http.ResponseWriter, req *http.Request) {
 func main() {
 	http.HandleFunc("/", handlerGET)
 	http.HandleFunc("/task", handlerPOST)
+	http.HandleFunc("/task/update", handlerPATCH)
+	http.HandleFunc("/task/delete", handlerDELETE)
 	log.Println("Сервер запущен на http://localhost:8080")
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
