@@ -194,6 +194,7 @@ func handlerDELETE(answ http.ResponseWriter, req *http.Request) {
 
 	//удоли задачу!
 	delete(tasks, id)
+	answ.WriteHeader(http.StatusNoContent)
 }
 
 func main() {
