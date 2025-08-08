@@ -16,6 +16,19 @@ type Task struct {
 var tasks = make(map[int]Task)
 var currentID = 1
 
+func handlerMethod(answ http.ResponseWriter, req *http.Request) {
+	switch req.Method {
+	case http.MethodPost:
+		handlerPOST(answ, req)
+	case http.MethodPatch:
+		handlerPATCH(answ, req)
+	case http.MethodDelete:
+		handlerDELETE(answ, req)
+	default:
+		http.Error(answ, "Method Not Allowed", http.StatusMethodNotAllowed)
+	}
+}
+
 func handlerPOST(answ http.ResponseWriter, req *http.Request) {
 
 	//проверка совпадения метода
@@ -39,12 +52,15 @@ func handlerPOST(answ http.ResponseWriter, req *http.Request) {
 
 	//создание ответа
 	response := map[string]interface{}{ //использую значение interface{}, чтобы не возникло конфликтов типов
-		"message": "Task created",
-		"task":    newTask,
+		"id":     newTask.ID,
+		"text":   newTask.Text,
+		"status": newTask.Status,
 	}
 
 	//завернуть в JSON и отправить
+
 	answ.Header().Set("Content-Type", "application/json")
+	answ.WriteHeader(http.StatusCreated)
 	json.NewEncoder(answ).Encode(response)
 }
 
@@ -59,10 +75,15 @@ func handlerGET(answ http.ResponseWriter, req *http.Request) {
 	//получение ID из URL
 	idStr := req.URL.Query().Get("id")
 
-	//проверка пустого ID? - выдача всех task
+	//проверка пустого ID?
 	if idStr == "" {
+		taskList := make([]Task, 0, len(tasks))
+		for _, task := range tasks {
+			taskList = append(taskList, task)
+		}
+
 		answ.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(answ).Encode(tasks)
+		json.NewEncoder(answ).Encode(taskList)
 		return
 	}
 
@@ -133,8 +154,9 @@ func handlerPATCH(answ http.ResponseWriter, req *http.Request) {
 
 	//формируем и отправляем ответ
 	response := map[string]interface{}{
-		"message": "Task updated!",
-		"task":    task,
+		"id":     id,
+		"text":   task.Text,
+		"status": task.Status,
 	}
 	answ.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(answ).Encode(response)
@@ -172,20 +194,11 @@ func handlerDELETE(answ http.ResponseWriter, req *http.Request) {
 
 	//удоли задачу!
 	delete(tasks, id)
-
-	//формулируем ответ чиста граматна
-	response := map[string]interface{}{
-		"message": "Task deleted!",
-	}
-	answ.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(answ).Encode(response)
 }
 
 func main() {
 	http.HandleFunc("/", handlerGET)
-	http.HandleFunc("/task", handlerPOST)
-	http.HandleFunc("/task/update", handlerPATCH)
-	http.HandleFunc("/task/delete", handlerDELETE)
+	http.HandleFunc("/tasks", handlerMethod)
 	log.Println("Сервер запущен на http://localhost:8080")
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
