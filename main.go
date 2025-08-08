@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 type Task struct {
@@ -72,8 +73,17 @@ func handlerGET(answ http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	//получение ID из URL
-	idStr := req.URL.Query().Get("id")
+	//дробим url после домена по "/"
+	pathParts := strings.Split(req.URL.Path, "/")
+
+	//проверка формата пути
+	if len(pathParts) < 2 {
+		http.Error(answ, "Invalid path format", http.StatusBadRequest)
+		return
+	}
+
+	//получение ID string
+	idStr := pathParts[1]
 
 	//проверка пустого ID?
 	if idStr == "" {
@@ -81,7 +91,6 @@ func handlerGET(answ http.ResponseWriter, req *http.Request) {
 		for _, task := range tasks {
 			taskList = append(taskList, task)
 		}
-
 		answ.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(answ).Encode(taskList)
 		return
@@ -98,6 +107,7 @@ func handlerGET(answ http.ResponseWriter, req *http.Request) {
 	task, avail := tasks[id] // avail - показывает наличие задачи(bool)
 	if !avail {
 		http.Error(answ, "Task Not Found", http.StatusNotFound)
+		return
 	}
 
 	//заворачиваем в JSON и отправляем задачу клиенту
@@ -113,8 +123,18 @@ func handlerPATCH(answ http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	//получаем ID задачи
-	idStr := req.URL.Query().Get("id")
+	//разделение пути по "/"
+	pathParts := strings.Split(req.URL.Path, "/")
+
+	//проверка корректности пути
+	if len(pathParts) < 3 || pathParts[1] != "tasks" {
+		http.Error(answ, "Invalid path format", http.StatusBadRequest)
+		return
+	}
+
+	//получаем ID string
+	idStr := pathParts[2]
+
 	if idStr == "" {
 		http.Error(answ, "Cannot be empty", http.StatusBadRequest)
 		return
@@ -171,12 +191,17 @@ func handlerDELETE(answ http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	//прием ID
-	idStr := req.URL.Query().Get("id")
-	if idStr == "" {
-		http.Error(answ, "Cannot be empty", http.StatusBadRequest)
+	//разбор URL после домена через "/"
+	pathParts := strings.Split(req.URL.Path, "/")
+
+	// проверяем формат
+	if len(pathParts) < 3 || pathParts[1] != "tasks" {
+		http.Error(answ, "Invalid path format", http.StatusBadRequest)
 		return
 	}
+
+	//записываем ID string
+	idStr := pathParts[2]
 
 	//преобразование id string - id int
 	id, err := strconv.Atoi(idStr)
@@ -188,7 +213,7 @@ func handlerDELETE(answ http.ResponseWriter, req *http.Request) {
 	//найти задачу
 	_, avail := tasks[id] //'_' - потому что нет необходимости использовать таску
 	if !avail {
-		http.Error(answ, "Task Not Fount", http.StatusNotFound)
+		http.Error(answ, "Task Not Found", http.StatusNotFound)
 		return
 	}
 
@@ -199,7 +224,7 @@ func handlerDELETE(answ http.ResponseWriter, req *http.Request) {
 
 func main() {
 	http.HandleFunc("/", handlerGET)
-	http.HandleFunc("/tasks", handlerMethod)
+	http.HandleFunc("/tasks/", handlerMethod)
 	log.Println("Сервер запущен на http://localhost:8080")
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
