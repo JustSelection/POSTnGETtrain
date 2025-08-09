@@ -25,6 +25,8 @@ func handlerMethod(answ http.ResponseWriter, req *http.Request) {
 		handlerPATCH(answ, req)
 	case http.MethodDelete:
 		handlerDELETE(answ, req)
+	case http.MethodGet:
+		handlerGET(answ, req)
 	default:
 		http.Error(answ, "Method Not Allowed", http.StatusMethodNotAllowed)
 	}
@@ -59,7 +61,6 @@ func handlerPOST(answ http.ResponseWriter, req *http.Request) {
 	}
 
 	//завернуть в JSON и отправить
-
 	answ.Header().Set("Content-Type", "application/json")
 	answ.WriteHeader(http.StatusCreated)
 	json.NewEncoder(answ).Encode(response)
@@ -77,13 +78,13 @@ func handlerGET(answ http.ResponseWriter, req *http.Request) {
 	pathParts := strings.Split(req.URL.Path, "/")
 
 	//проверка формата пути
-	if len(pathParts) < 2 {
+	if len(pathParts) < 3 || pathParts[1] != "tasks" {
 		http.Error(answ, "Invalid path format", http.StatusBadRequest)
 		return
 	}
 
 	//получение ID string
-	idStr := pathParts[1]
+	idStr := pathParts[2]
 
 	//проверка пустого ID?
 	if idStr == "" {
@@ -223,7 +224,6 @@ func handlerDELETE(answ http.ResponseWriter, req *http.Request) {
 }
 
 func main() {
-	http.HandleFunc("/", handlerGET)
 	http.HandleFunc("/tasks/", handlerMethod)
 	log.Println("Сервер запущен на http://localhost:8080")
 	err := http.ListenAndServe(":8080", nil)
