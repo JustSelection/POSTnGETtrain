@@ -10,10 +10,10 @@ import (
 )
 
 type Task struct {
-	ID       string         `json:"id" gorm:"primaryKey"`
-	Name     string         `json:"name"`
-	IsDone   bool           `json:"is_done"`
-	DeleteAt gorm.DeletedAt `json:"-" gorm:"index"` // "-", чтобы это техническое поле не отображалось в JSON
+	ID        string         `json:"id" gorm:"primaryKey"`
+	Name      string         `json:"name"`
+	IsDone    bool           `json:"is_done"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"` // "-", чтобы это техническое поле не отображалось в JSON
 }
 
 // Соединение с бд
