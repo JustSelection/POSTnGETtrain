@@ -1,148 +1,173 @@
 package main
 
 import (
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"log"
 	"net/http"
-	"strconv"
 )
 
 type Task struct {
-	ID     int    `json:"id"`
-	Name   string `json:"name"`
-	Status string `json:"status"`
+	ID       string         `json:"id" gorm:"primaryKey"`
+	Name     string         `json:"name"`
+	IsDone   bool           `json:"is_done"`
+	DeleteAt gorm.DeletedAt `json:"-" gorm:"index"` // "-", чтобы это техническое поле не отображалось в JSON
 }
 
-// имитация БД с id:Task
-var tasks = make(map[int]Task)
+// Соединение с бд
+var db *gorm.DB
 
-// актуальный ид
-var currentID = 1
+// Функция инициализации бд
+func initDB() {
+
+	// Параметры подключения к "PostgreSQL"
+	dsn := "host=localhost user=postgres password=yourpassword dbname=postgres port=5432 sslmode=disable"
+
+	// Собираем ошибки с соединения
+	var err error
+	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		log.Fatalf("Could not connect to database: %v", err)
+	}
+
+	// Автомиграция
+	if err := db.AutoMigrate(&Task{}); err != nil {
+		log.Fatalf("Could not migrate: %v", err)
+	}
+}
 
 // Обработчик GET, выдающий список тасков
 func getListTasks(c echo.Context) error {
+	//место для задач из БД
+	var tasks []Task //<-- сюда
 
-	//место для задач
-	taskList := make([]Task, 0, len(tasks))
-
-	//закидываем все таски в taskList
-	for _, task := range tasks {
-		taskList = append(taskList, task)
+	// Фильтруем неудаленные записи и помещаем таску с помощью Find в tasks
+	if err := db.Where("deleted_at IS NULL").Find(&tasks).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database error."})
 	}
-	return c.JSON(http.StatusOK, taskList)
+	return c.JSON(http.StatusOK, tasks)
 }
 
 // Обработчик GET на получение таски по ИД
 func getTask(c echo.Context) error {
+	//Получаем ID из урла
+	id := c.Param("id")
 
-	//достаем ид из урла, сразу проверяем
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ID"})
-	}
-	//проверяем неположительный ид:
-	if id <= 0 {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ID. Must be a positive"})
+	// Ловим пустой ид
+	if id == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Task ID is required"})
 	}
 
-	//ищем задачу в "бд"
-	task, avail := tasks[id]
+	// переменная типа Таск для записи из БД
+	var task Task
 
-	//проверили существование задачи с таким ид
-	if !avail {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "Task Not Found"})
+	//Поиск по ИД таски из БД, исключая возможность найти удаленные таски
+	if err := db.Where("id = ? AND deleted_at IS NULL", id).First(&task).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database error"})
 	}
-
 	return c.JSON(http.StatusOK, task)
 }
 
 func postTask(c echo.Context) error {
 
 	//объявление переменной, куда можно положить новую задачу
-	var newTask Task
-
-	//преобразуем JSON и кладем его содержимое в newTask, заодно проверяем
-	if err := c.Bind(&newTask); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Bad Request"})
+	var newTask struct {
+		Name   string `json:"name"`
+		IsDone bool   `json:"is_done"`
 	}
 
-	//присваиваем ид задаче и кладем в "бд"
-	newTask.ID = currentID
-	tasks[currentID] = newTask
+	//достаем данные из JSON и кладем их в newTask, заодно проверяем на ошибки
+	if err := c.Bind(&newTask); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
+	}
 
-	currentID++ //готов ид для следующей задачи
+	//создаем объект таски для БД
+	task := Task{
+		ID:     uuid.NewString(), //Генерируем новый ИД
+		Name:   newTask.Name,
+		IsDone: newTask.IsDone,
+	}
 
-	return c.JSON(http.StatusCreated, newTask)
+	//загружаем в базу данных
+	if err := db.Create(&task).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database error"})
+	}
+
+	//сообщаем АПИ, что все сохранилось
+	return c.JSON(http.StatusCreated, task)
 }
 
-// удаление задачи
+// Удаление задачи
 func deleteTask(c echo.Context) error {
-	id, err := strconv.Atoi(c.Param("id")) //погружаем URL string ID в переменную int id + ошибки
-	if err != nil {
+	// Получение ID из URL
+	id := c.Param("id")
+
+	// Проверка, чтобы не было пустого ID
+	if id == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ID"})
 	}
 
-	//проверка на положительность
-	if id <= 0 {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ID. Must be a positive"})
+	// Проверяем, не удалена ли уже таска и удаляем её
+	result := db.Where("id = ? AND deleted_at IS NULL", id).Delete(&Task{})
+	// Ловим ошибки
+	if result.Error != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database error"})
+	}
+	// Было ли изменение в записи?
+	if result.RowsAffected == 0 {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Task Not Found or deleted"})
 	}
 
-	//проверка существования задачи под идом
-	_, avail := tasks[id]
-	if !avail {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "Task Not Found"})
-	}
-
-	//просто удаление
-	delete(tasks, id)
+	// Уведомляем АПИ, что удаление завершено
 	return c.JSON(http.StatusNoContent, nil)
 }
 
-// подрихтовать задачку из списка маленько
 func patchTask(c echo.Context) error {
+	// Получение ИДа из УРЛ
+	id := c.Param("id")
 
-	//грузим в ид ID из урла + проверка на ошибки
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
+	// Проверка пустого ида
+	if id == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ID"})
 	}
 
-	//ид больше нуля
-	if id <= 0 {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ID. Must be a positive"})
+	// Ищем задачу по ИДу и загружаем в task(для БД)
+	var task Task
+	if err := db.Where("id = ? AND deleted_at IS NULL", id).First(&task).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database error"})
 	}
 
-	//грузим задачу под идом из "бд" в task и проверяем есть ли задача под этим ид
-	task, avail := tasks[id]
-	if !avail {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "Task Not Found"})
-	}
-
-	//локальная переменная, где будут храниться обновления
 	var updates struct {
-		Name   string `json:"name,omitempty"` //omitempty - шобы можно было проигнорить пустые значения
-		Status string `json:"status,omitempty"`
+		Name   *string `json:"name,omitempty"`
+		IsDone *bool   `json:"is_done,omitempty"`
 	}
 
-	//разгружаем JSON в updates
+	// Перекладываем тело из запроса в структуру updates
 	if err := c.Bind(&updates); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Bad Request"})
 	}
 
-	//обновляем значения
-	if updates.Name != "" {
-		task.Name = updates.Name
+	// Загружаем updates в task с проверкой отсутствующих значений
+	if updates.Name != nil {
+		task.Name = *updates.Name
 	}
-	if updates.Status != "" {
-		task.Status = updates.Status
+	if updates.IsDone != nil {
+		task.IsDone = *updates.IsDone
 	}
 
-	//отправляем в бд изменения
-	tasks[id] = task
+	// Сохраняем изменения в базе
+	if err := db.Save(&task).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database error"})
+	}
 
+	// Отчет об успешном выполнении
 	return c.JSON(http.StatusOK, task)
 }
 
 func main() {
+	initDB()
 	e := echo.New()
 
 	e.GET("/tasks", getListTasks)
