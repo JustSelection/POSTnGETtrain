@@ -4,9 +4,10 @@ import (
 	"POSTnGETtrain/internal/db"
 	"POSTnGETtrain/internal/handlers"
 	"POSTnGETtrain/internal/taskService"
+	"log"
+
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"log"
 )
 
 func main() {

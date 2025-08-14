@@ -18,7 +18,7 @@ type taskRepository struct { // место для таски
 	db *gorm.DB // инструмент подключения к БД
 }
 
-// Конструктор репозитория
+// NewTaskRepository Конструктор репозитория
 func NewTaskRepository(db *gorm.DB) TaskRepository {
 	return &taskRepository{db: db} // возвращаем из функции: заворачиваем taskRepository в TaskRepository
 }

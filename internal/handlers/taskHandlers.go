@@ -2,8 +2,9 @@ package handlers
 
 import (
 	"POSTnGETtrain/internal/taskService" // Импорт сервисного слоя для работы с задачами
-	"github.com/labstack/echo/v4"        // Веб-фреймворк Echo
 	"net/http"                           // Пакет для работы с HTTP
+
+	"github.com/labstack/echo/v4" // Веб-фреймворк Echo
 )
 
 // TaskHandler - структура обработчиков задач
