@@ -42,3 +42,6 @@ check-db:
 migrate-down-hard:
 	$(MIGRATE) down
 	$(PSQL) -c "DROP TABLE IF EXISTS tasks;"
+
+gen:
+	oapi-codegen -config openapi/.openapi -include-tags tasks -package tasks openapi/openapi.yaml > ./internal/web/tasks/api.gen.go

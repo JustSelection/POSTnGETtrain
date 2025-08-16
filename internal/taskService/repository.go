@@ -14,8 +14,8 @@ type TaskRepository interface {
 }
 
 // Структура, которая реализует все методы TaskRepository
-type taskRepository struct { // место для таски
-	db *gorm.DB // инструмент подключения к БД
+type taskRepository struct { // Место для таски
+	db *gorm.DB // Инструмент подключения к БД
 }
 
 // NewTaskRepository Конструктор репозитория
@@ -23,14 +23,14 @@ func NewTaskRepository(db *gorm.DB) TaskRepository {
 	return &taskRepository{db: db} // возвращаем из функции: заворачиваем taskRepository в TaskRepository
 }
 
-// Извлекаем все неудаленные таски из БД
+// GetAll Извлекаем все неудаленные таски из БД
 func (r *taskRepository) GetAll() ([]Task, error) {
 	var tasks []Task                                           // сюда будем класть найденные в БД таски
 	err := r.db.Where("deleted_at IS NULL").Find(&tasks).Error // записываем в &tasks с условием, что не удалено
 	return tasks, err
 }
 
-// Поиск задачи по ID
+// GetByID Поиск задачи по ID
 func (r *taskRepository) GetByID(id string) (Task, error) {
 	var task Task //место, чтобы временно разместить таску из БД
 
@@ -38,19 +38,19 @@ func (r *taskRepository) GetByID(id string) (Task, error) {
 	return task, err
 }
 
-// Создание задачи
+// Create Создание задачи
 func (r *taskRepository) Create(task Task) (Task, error) {
 	err := r.db.Create(&task).Error
 	return task, err
 }
 
-// Редактирование задачи
+// Update Редактирование задачи
 func (r *taskRepository) Update(task Task) (Task, error) {
 	err := r.db.Save(&task).Error
 	return task, err
 }
 
-// Удаление (мягкое) задачи
+// Delete Удаление (мягкое) задачи
 func (r *taskRepository) Delete(id string) error {
 	result := r.db.Where("id = ? AND deleted_at IS NULL", id).Delete(&Task{})
 	if result.Error != nil {

@@ -4,6 +4,7 @@ import (
 	"POSTnGETtrain/internal/db"
 	"POSTnGETtrain/internal/handlers"
 	"POSTnGETtrain/internal/taskService"
+	"POSTnGETtrain/internal/web/tasks"
 	"log"
 
 	"github.com/labstack/echo/v4"
@@ -18,19 +19,20 @@ func main() {
 
 	e := echo.New()
 
-	tskRepo := taskService.NewTaskRepository(database)
-	tskService := taskService.NewTaskService(tskRepo)
-	tskHandlers := handlers.NewTaskHandler(tskService)
-
+	// Middleware
 	e.Use(middleware.CORS())
 	e.Use(middleware.Logger())
 
-	e.GET("/tasks", tskHandlers.GetListTasks)
-	e.GET("/tasks/:id", tskHandlers.GetTask)
-	e.POST("/tasks", tskHandlers.PostTask)
-	e.PATCH("/tasks/:id", tskHandlers.PatchTask)
-	e.DELETE("/tasks/:id", tskHandlers.DeleteTask)
+	// Инициализация сервисов
+	repo := taskService.NewTaskRepository(database)
+	service := taskService.NewTaskService(repo)
+	handler := handlers.NewHandler(service)
 
+	// Регистрация обработчиков OpenAPI
+	strictHandler := tasks.NewStrictHandler(handler, nil)
+	tasks.RegisterHandlers(e, strictHandler)
+
+	// Запуск сервера
 	err = e.Start("localhost:8080")
 	if err != nil {
 		log.Fatalf("Could not start: %v", err)

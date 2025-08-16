@@ -1,111 +1,117 @@
 package handlers
 
 import (
-	"POSTnGETtrain/internal/taskService" // Импорт сервисного слоя для работы с задачами
-	"net/http"                           // Пакет для работы с HTTP
-
-	"github.com/labstack/echo/v4" // Веб-фреймворк Echo
+	"POSTnGETtrain/internal/taskService"
+	"POSTnGETtrain/internal/web/tasks"
+	"context"
 )
 
-// TaskHandler - структура обработчиков задач
-type TaskHandler struct {
-	service taskService.TaskService // Сервис для бизнес-логики задач
+// Handler - заготовка для конструктора
+type Handler struct {
+	service taskService.TaskService // Сервис для бизнес-логики работы с задачами
 }
 
-// NewTaskHandler - конструктор для TaskHandler
-func NewTaskHandler(s taskService.TaskService) *TaskHandler {
-	return &TaskHandler{service: s}
+// NewHandler - сам конструктор
+func NewHandler(s taskService.TaskService) *Handler {
+	return &Handler{service: s}
 }
 
-// GetListTasks - обработчик GET запроса для получения списка всех задач
-func (h *TaskHandler) GetListTasks(c echo.Context) error {
-	// Получаем все задачи через сервис
-	tasks, err := h.service.GetAllTasks()
+// GetTasks - ctx и request не используются, но требуются для запроса
+func (h *Handler) GetTasks(_ context.Context, _ tasks.GetTasksRequestObject) (
+	tasks.GetTasksResponseObject, error) {
+
+	// Получаем все задачи из сервисного слоя
+	dbTasks, err := h.service.GetAllTasks()
 	if err != nil {
-		// В случае ошибки возвращаем 500 статус
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database Error"})
+		return nil, err
 	}
-	return c.JSON(http.StatusOK, tasks)
+
+	// Создаем пустой список для ответа
+	var response tasks.GetTasks200JSONResponse
+
+	// Преобразуем задачи из формата сервиса в формат API
+	for _, t := range dbTasks {
+		response = append(response, tasks.Task{
+			ID:     t.ID,     // Идентификатор задачи
+			Name:   t.Name,   // Название задачи
+			IsDone: t.IsDone, // Статус выполнения
+		})
+	}
+	return response, nil // Возвращаем список задач
 }
 
-// GetTask - обработчик GET запроса для получения одной задачи по ID
-func (h *TaskHandler) GetTask(c echo.Context) error {
-	// Получаем ID задачи из URL
-	id := c.Param("id")
-	if id == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "task ID is required"})
+func (h *Handler) PostTasks(_ context.Context, request tasks.PostTasksRequestObject) (
+	tasks.PostTasksResponseObject, error) {
+	// Устанавливаем статус по умолчанию
+	isDone := false
+	if request.Body.IsDone != nil {
+		isDone = *request.Body.IsDone // Если статус указан, используем его
 	}
 
-	// Получаем задачу через сервис
-	task, err := h.service.GetTaskByID(id)
+	// Создаем задачу с запросом в сервис
+	created, err := h.service.CreateTask(request.Body.Name, isDone)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database Error"})
+		return nil, err // Обрабатываем ошибку создания
 	}
-	return c.JSON(http.StatusOK, task)
+
+	// Возвращаем созданную задачу в формате API
+	return tasks.PostTasks201JSONResponse{
+		ID:     created.ID,     // ID созданной задачи
+		Name:   created.Name,   // Название задачи
+		IsDone: created.IsDone, // Статус выполнения
+	}, nil
 }
 
-// PostTask - обработчик POST запроса для создания новой задачи
-func (h *TaskHandler) PostTask(c echo.Context) error {
-	// Структура для парсинга тела запроса
-	var newTask struct {
-		Name   string `json:"name"`    // Название задачи
-		IsDone bool   `json:"is_done"` // Статус выполнения
-	}
-
-	// Заворачиваем тело запроса в структуру
-	if err := c.Bind(&newTask); err != nil {
-		// В случае ошибки парсинга возвращаем 400 статус
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
-	}
-
-	// Создаем задачу через сервис
-	task, err := h.service.CreateTask(newTask.Name, newTask.IsDone)
+func (h *Handler) GetTasksId(_ context.Context, request tasks.GetTasksIdRequestObject) (
+	tasks.GetTasksIdResponseObject, error) {
+	// Получаем задачу из сервиса по ID
+	task, err := h.service.GetTaskByID(request.Id)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database Error"})
+		return nil, err // Обрабатываем ошибку поиска
 	}
 
-	return c.JSON(http.StatusCreated, task)
+	// Возвращаем найденную задачу
+	return tasks.GetTasksId200JSONResponse{
+		ID:     task.ID,     // ID задачи
+		Name:   task.Name,   // Название задачи
+		IsDone: task.IsDone, // Статус выполнения
+	}, nil
 }
 
-// PatchTask - обработчик PATCH запроса для частичного обновления задачи
-func (h *TaskHandler) PatchTask(c echo.Context) error {
-	// Получаем ID задачи из параметров URL
-	id := c.Param("id")
-	if id == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "task ID is required"})
-	}
+func (h *Handler) PatchTasksId(_ context.Context, request tasks.PatchTasksIdRequestObject) (
+	tasks.PatchTasksIdResponseObject, error) {
+	// Переменные для обновляемых полей
+	var name *string
+	var isDone *bool
 
-	// Структура для тела запроса
-	var updates struct {
-		Name   *string `json:"name,omitempty"`    // Указатель на новое название (опционально)
-		IsDone *bool   `json:"is_done,omitempty"` // Указатель на новый статус (опционально)
+	// Если в запросе указано новое название, сохраняем его
+	if request.Body.Name != nil {
+		name = request.Body.Name
 	}
-
-	// Заворачиваем тело запроса в структуру
-	if err := c.Bind(&updates); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "bad request"})
+	// Если в запросе указан новый статус, сохраняем его
+	if request.Body.IsDone != nil {
+		isDone = request.Body.IsDone
 	}
 
 	// Обновляем задачу через сервис
-	task, err := h.service.UpdateTask(id, updates.Name, updates.IsDone)
+	updated, err := h.service.UpdateTask(request.Id, name, isDone)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database Error"})
+		return nil, err // Обрабатываем ошибку обновления
 	}
-	return c.JSON(http.StatusOK, task)
+
+	// Возвращаем обновленную задачу
+	return tasks.PatchTasksId200JSONResponse{
+		ID:     updated.ID,     // ID задачи
+		Name:   updated.Name,   // Новое название
+		IsDone: updated.IsDone, // Новый статус
+	}, nil
 }
 
-// DeleteTask - обработчик DELETE запроса для удаления задачи
-func (h *TaskHandler) DeleteTask(c echo.Context) error {
-	// Получаем ID задачи из параметров URL
-	id := c.Param("id")
-	if id == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "task ID is required"})
-	}
-
+func (h *Handler) DeleteTasksId(_ context.Context, request tasks.DeleteTasksIdRequestObject) (
+	tasks.DeleteTasksIdResponseObject, error) {
 	// Удаляем задачу через сервис
-	if err := h.service.DeleteTask(id); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database Error"})
+	if err := h.service.DeleteTask(request.Id); err != nil {
+		return nil, err
 	}
-
-	return c.JSON(http.StatusNoContent, nil)
+	return tasks.DeleteTasksId204Response{}, nil
 }

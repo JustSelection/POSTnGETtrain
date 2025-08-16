@@ -1,15 +1,16 @@
 package db
 
 import (
+	"log"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"log"
 )
 
 // Глобальная переменная для связи с БД через GORM
 var db *gorm.DB
 
-// Инициализация БД с подключением db к БД
+// InitDB Инициализация БД с подключением db к БД
 func InitDB() (*gorm.DB, error) {
 
 	// Параметры подключения
