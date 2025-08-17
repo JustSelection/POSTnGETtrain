@@ -27,18 +27,18 @@ func NewTaskRepository(db *gorm.DB) TaskRepository {
 
 // GetAll Извлекаем все неудаленные таски из БД
 func (r *taskRepository) GetAll() ([]Task, error) {
-	// 1. Всегда начинаем с инициализированного слайса
+	// Всегда начинаем с инициализированного слайса
 	tasks := make([]Task, 0)
 
-	// 2. Выполняем запрос
+	// Выполняем запрос
 	result := r.db.Where("deleted_at IS NULL").Find(&tasks)
 
-	// 3. Обрабатываем ошибки
+	// Обрабатываем ошибки
 	if result.Error != nil {
 		return nil, fmt.Errorf("repo: could not get all tasks: %w", result.Error)
 	}
 
-	// 4. Возвращаем результат (даже если он пустой)
+	// Возвращаем результат (даже если он пустой)
 	return tasks, nil
 }
 
