@@ -44,7 +44,7 @@ func (r *taskRepository) GetAll() ([]Task, error) {
 
 // GetByID Поиск задачи по ID
 func (r *taskRepository) GetByID(id string) (Task, error) {
-	var task Task //место, чтобы временно разместить таску из БД
+	var task Task // место, чтобы временно разместить таску из БД
 
 	result := r.db.Where("id = ? AND deleted_at IS NULL", id).First(&task)
 	if result.Error != nil {
