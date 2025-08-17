@@ -17,11 +17,11 @@ func main() {
 		log.Fatalf("Could not connect to database: %v", err)
 	}
 
-	e := echo.New()
+	echoServer := echo.New()
 
 	// Middleware
-	e.Use(middleware.CORS())
-	e.Use(middleware.Logger())
+	echoServer.Use(middleware.CORS())
+	echoServer.Use(middleware.Logger())
 
 	// Инициализация сервисов
 	repo := taskService.NewTaskRepository(database)
@@ -30,10 +30,10 @@ func main() {
 
 	// Регистрация обработчиков OpenAPI
 	strictHandler := tasks.NewStrictHandler(handler, nil)
-	tasks.RegisterHandlers(e, strictHandler)
+	tasks.RegisterHandlers(echoServer, strictHandler)
 
 	// Запуск сервера
-	err = e.Start("localhost:8080")
+	err = echoServer.Start("localhost:8080")
 	if err != nil {
 		log.Fatalf("Could not start: %v", err)
 	}

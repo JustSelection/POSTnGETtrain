@@ -4,6 +4,7 @@ import (
 	"POSTnGETtrain/internal/taskService"
 	"POSTnGETtrain/internal/web/tasks"
 	"context"
+	"fmt"
 )
 
 // Handler - заготовка для конструктора
@@ -23,11 +24,11 @@ func (h *Handler) GetTasks(_ context.Context, _ tasks.GetTasksRequestObject) (
 	// Получаем все задачи из сервисного слоя
 	dbTasks, err := h.service.GetAllTasks()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("handler: could not get all tasks: %w", err)
 	}
 
 	// Создаем пустой список для ответа
-	var response tasks.GetTasks200JSONResponse
+	response := make(tasks.GetTasks200JSONResponse, 0)
 
 	// Преобразуем задачи из формата сервиса в формат API
 	for _, t := range dbTasks {
@@ -51,7 +52,7 @@ func (h *Handler) PostTasks(_ context.Context, request tasks.PostTasksRequestObj
 	// Создаем задачу с запросом в сервис
 	created, err := h.service.CreateTask(request.Body.Name, isDone)
 	if err != nil {
-		return nil, err // Обрабатываем ошибку создания
+		return nil, fmt.Errorf("handler: could not create task: %w", err) // Обрабатываем ошибку создания
 	}
 
 	// Возвращаем созданную задачу в формате API
@@ -67,7 +68,7 @@ func (h *Handler) GetTasksId(_ context.Context, request tasks.GetTasksIdRequestO
 	// Получаем задачу из сервиса по ID
 	task, err := h.service.GetTaskByID(request.Id)
 	if err != nil {
-		return nil, err // Обрабатываем ошибку поиска
+		return nil, fmt.Errorf("handler: could not get task by ID %s: %w", request.Id, err) // Обрабатываем ошибку поиска
 	}
 
 	// Возвращаем найденную задачу
@@ -96,7 +97,7 @@ func (h *Handler) PatchTasksId(_ context.Context, request tasks.PatchTasksIdRequ
 	// Обновляем задачу через сервис
 	updated, err := h.service.UpdateTask(request.Id, name, isDone)
 	if err != nil {
-		return nil, err // Обрабатываем ошибку обновления
+		return nil, fmt.Errorf("handler: could not update task %s: %w", request.Id, err) // Обрабатываем ошибку обновления
 	}
 
 	// Возвращаем обновленную задачу
@@ -111,7 +112,7 @@ func (h *Handler) DeleteTasksId(_ context.Context, request tasks.DeleteTasksIdRe
 	tasks.DeleteTasksIdResponseObject, error) {
 	// Удаляем задачу через сервис
 	if err := h.service.DeleteTask(request.Id); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("handler: could not delete task %s: %w", request.Id, err)
 	}
 	return tasks.DeleteTasksId204Response{}, nil
 }

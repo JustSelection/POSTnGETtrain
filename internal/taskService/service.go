@@ -1,6 +1,8 @@
 package taskService
 
 import (
+	"fmt"
+
 	"github.com/google/uuid" // Пакет для генерации UUID
 )
 
@@ -67,5 +69,8 @@ func (s *taskService) UpdateTask(id string, name *string, isDone *bool) (Task, e
 
 // DeleteTask Удаление задачи по ИДу
 func (s *taskService) DeleteTask(id string) error {
-	return s.repo.Delete(id) // Удаляем через репозиторий
+	if err := s.repo.Delete(id); err != nil {
+		return fmt.Errorf("service: could not delete task %s: %w", id, err)
+	}
+	return nil
 }

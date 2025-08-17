@@ -1,6 +1,8 @@
 package taskService
 
 import (
+	"fmt"
+
 	"gorm.io/gorm"
 )
 
@@ -25,17 +27,30 @@ func NewTaskRepository(db *gorm.DB) TaskRepository {
 
 // GetAll Извлекаем все неудаленные таски из БД
 func (r *taskRepository) GetAll() ([]Task, error) {
-	var tasks []Task                                           // сюда будем класть найденные в БД таски
-	err := r.db.Where("deleted_at IS NULL").Find(&tasks).Error // записываем в &tasks с условием, что не удалено
-	return tasks, err
+	// 1. Всегда начинаем с инициализированного слайса
+	tasks := make([]Task, 0)
+
+	// 2. Выполняем запрос
+	result := r.db.Where("deleted_at IS NULL").Find(&tasks)
+
+	// 3. Обрабатываем ошибки
+	if result.Error != nil {
+		return nil, fmt.Errorf("repo: could not get all tasks: %w", result.Error)
+	}
+
+	// 4. Возвращаем результат (даже если он пустой)
+	return tasks, nil
 }
 
 // GetByID Поиск задачи по ID
 func (r *taskRepository) GetByID(id string) (Task, error) {
 	var task Task //место, чтобы временно разместить таску из БД
 
-	err := r.db.Where("id = ? AND deleted_at IS NULL", id).Find(&task).Error
-	return task, err
+	result := r.db.Where("id = ? AND deleted_at IS NULL", id).First(&task)
+	if result.Error != nil {
+		return Task{}, result.Error
+	}
+	return task, nil
 }
 
 // Create Создание задачи
