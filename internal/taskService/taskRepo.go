@@ -48,7 +48,7 @@ func (r *taskRepository) GetByID(id string) (Task, error) {
 
 	result := r.db.Where("id = ? AND deleted_at IS NULL", id).First(&task)
 	if result.Error != nil {
-		return Task{}, result.Error
+		return Task{}, fmt.Errorf("repo: could not get task by id: %w", result.Error)
 	}
 	return task, nil
 }

@@ -4,7 +4,9 @@ import (
 	"POSTnGETtrain/internal/db"
 	"POSTnGETtrain/internal/handlers"
 	"POSTnGETtrain/internal/taskService"
+	"POSTnGETtrain/internal/userService"
 	"POSTnGETtrain/internal/web/tasks"
+	"POSTnGETtrain/internal/web/users"
 	"log"
 
 	"github.com/labstack/echo/v4"
@@ -23,15 +25,22 @@ func main() {
 	echoServer.Use(middleware.CORS())
 	echoServer.Use(middleware.Logger())
 
-	// Инициализация сервисов
-	repo := taskService.NewTaskRepository(database)
-	service := taskService.NewTaskService(repo)
-	handler := handlers.NewHandler(service)
+	// Инициализация сервисов задач
+	tskRepo := taskService.NewTaskRepository(database)
+	tskService := taskService.NewTaskService(tskRepo)
+	tskHandler := handlers.NewHandler(tskService)
+
+	// Инициализация сервисов пользователей
+	usrRepo := userService.NewUserRepository(database)
+	usrService := userService.NewUserService(usrRepo)
+	usrHandler := handlers.NewUserHandler(usrService)
 
 	// Регистрация обработчиков OpenAPI
-	strictHandler := tasks.NewStrictHandler(handler, nil)
-	tasks.RegisterHandlers(echoServer, strictHandler)
+	taskStrictHandler := tasks.NewStrictHandler(tskHandler, nil)
+	tasks.RegisterHandlers(echoServer, taskStrictHandler)
 
+	userStrictHandler := users.NewStrictHandler(usrHandler, nil)
+	users.RegisterHandlers(echoServer, userStrictHandler)
 	// Запуск сервера
 	err = echoServer.Start("localhost:8080")
 	if err != nil {
