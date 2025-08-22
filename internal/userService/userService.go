@@ -18,6 +18,7 @@ type UserService interface {
 	CreateUser(email, password string) (*User, error)
 	UpdateUser(id string, email, password *string) (*User, error)
 	DeleteUser(id string) error
+	GetUserByID(id string) (*User, error)
 }
 
 // Реализация UserService
@@ -68,4 +69,13 @@ func (s *userService) UpdateUser(id string, email, password *string) (*User, err
 // DeleteUser Удаление пользователя
 func (s *userService) DeleteUser(id string) error {
 	return s.repo.Delete(id) // Удаляем через репозиторий
+}
+
+// Пока не работает
+func (s *userService) GetUserByID(id string) (*User, error) {
+	user, err := s.repo.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
 }

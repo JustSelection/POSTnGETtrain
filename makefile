@@ -54,3 +54,7 @@ lint:
 clean-linter-cache:
 	@echo "Cleaning linter cache..."
 	golangci-lint cache clean
+	
+test:
+	@echo "Testing code..."
+	go test ./... -v
