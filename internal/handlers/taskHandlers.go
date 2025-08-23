@@ -36,6 +36,7 @@ func (h *Handler) GetTasks(_ context.Context, _ tasks.GetTasksRequestObject) (
 			ID:     t.ID,     // Идентификатор задачи
 			Name:   t.Name,   // Название задачи
 			IsDone: t.IsDone, // Статус выполнения
+			UserID: t.UserID, // Какому пользователю принадлежит
 		})
 	}
 	return response, nil // Возвращаем список задач
@@ -43,6 +44,9 @@ func (h *Handler) GetTasks(_ context.Context, _ tasks.GetTasksRequestObject) (
 
 func (h *Handler) PostTasks(_ context.Context, request tasks.PostTasksRequestObject) (
 	tasks.PostTasksResponseObject, error) {
+	if request.Body.UserID == "" {
+		return nil, fmt.Errorf("handler: user_id is required")
+	}
 	// Устанавливаем статус по умолчанию
 	isDone := false
 	if request.Body.IsDone != nil {
@@ -50,7 +54,7 @@ func (h *Handler) PostTasks(_ context.Context, request tasks.PostTasksRequestObj
 	}
 
 	// Создаем задачу с запросом в сервис
-	created, err := h.service.CreateTask(request.Body.Name, isDone)
+	created, err := h.service.CreateTask(request.Body.Name, isDone, request.Body.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("handler: could not create task: %w", err) // Обрабатываем ошибку создания
 	}
@@ -60,7 +64,27 @@ func (h *Handler) PostTasks(_ context.Context, request tasks.PostTasksRequestObj
 		ID:     created.ID,     // ID созданной задачи
 		Name:   created.Name,   // Название задачи
 		IsDone: created.IsDone, // Статус выполнения
+		UserID: created.UserID,
 	}, nil
+}
+
+// GetUsersIdTasks - получить все задачи юзера
+func (h *Handler) GetUsersIdTasks(_ context.Context, request tasks.GetUsersIdTasksRequestObject) (tasks.GetUsersIdTasksResponseObject, error) {
+	tasksList, err := h.service.GetTasksByUserID(request.Id)
+	if err != nil {
+		return nil, fmt.Errorf("handler: could not get tasks for user%s: %w", request.Id, err)
+	}
+
+	response := make(tasks.GetUsersIdTasks200JSONResponse, 0)
+	for _, t := range tasksList {
+		response = append(response, tasks.Task{
+			ID:     t.ID,
+			Name:   t.Name,
+			IsDone: t.IsDone,
+			UserID: t.UserID,
+		})
+	}
+	return response, nil
 }
 
 func (h *Handler) GetTasksId(_ context.Context, request tasks.GetTasksIdRequestObject) (
@@ -76,6 +100,7 @@ func (h *Handler) GetTasksId(_ context.Context, request tasks.GetTasksIdRequestO
 		ID:     task.ID,     // ID задачи
 		Name:   task.Name,   // Название задачи
 		IsDone: task.IsDone, // Статус выполнения
+		UserID: task.UserID,
 	}, nil
 }
 
@@ -84,6 +109,7 @@ func (h *Handler) PatchTasksId(_ context.Context, request tasks.PatchTasksIdRequ
 	// Переменные для обновляемых полей
 	var name *string
 	var isDone *bool
+	var userID *string
 
 	// Если в запросе указано новое название, сохраняем его
 	if request.Body.Name != nil {
@@ -94,8 +120,12 @@ func (h *Handler) PatchTasksId(_ context.Context, request tasks.PatchTasksIdRequ
 		isDone = request.Body.IsDone
 	}
 
+	if request.Body.UserID != nil {
+		userID = request.Body.UserID
+	}
+
 	// Обновляем задачу через сервис
-	updated, err := h.service.UpdateTask(request.Id, name, isDone)
+	updated, err := h.service.UpdateTask(request.Id, name, isDone, userID)
 	if err != nil {
 		return nil, fmt.Errorf("handler: could not update task %s: %w", request.Id, err) // Обрабатываем ошибку обновления
 	}
@@ -105,6 +135,7 @@ func (h *Handler) PatchTasksId(_ context.Context, request tasks.PatchTasksIdRequ
 		ID:     updated.ID,     // ID задачи
 		Name:   updated.Name,   // Новое название
 		IsDone: updated.IsDone, // Новый статус
+		UserID: updated.UserID,
 	}, nil
 }
 

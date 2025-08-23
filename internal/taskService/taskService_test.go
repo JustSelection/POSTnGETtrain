@@ -1,6 +1,7 @@
 package taskService
 
 import (
+	"POSTnGETtrain/internal/models"
 	"errors"
 	"testing"
 
@@ -11,25 +12,25 @@ import (
 func TestCreateTask(t *testing.T) {
 	tests := []struct {
 		name      string
-		input     Task
-		mockSetup func(m *MockTaskRepository, input Task)
+		input     models.Task
+		mockSetup func(m *MockTaskRepository, input models.Task)
 		wantErr   bool
 	}{
 		{
 			name:  "успешное создание",
-			input: Task{Name: "Test Task", IsDone: false},
-			mockSetup: func(m *MockTaskRepository, input Task) {
-				m.On("Create", mock.MatchedBy(func(t Task) bool {
-					return t.Name == input.Name && t.IsDone == input.IsDone
+			input: models.Task{Name: "Test Task", IsDone: false},
+			mockSetup: func(m *MockTaskRepository, input models.Task) {
+				m.On("Create", mock.MatchedBy(func(t models.Task) bool {
+					return t.Name == input.Name && t.IsDone == input.IsDone && t.UserID == "test-user-id"
 				})).Return(input, nil)
 			},
 			wantErr: false,
 		},
 		{
 			name:  "ошибка создания",
-			input: Task{Name: "Bad Task", IsDone: false},
-			mockSetup: func(m *MockTaskRepository, input Task) {
-				m.On("Create", mock.AnythingOfType("taskService.Task")).Return(Task{},
+			input: models.Task{Name: "Bad Task", IsDone: false},
+			mockSetup: func(m *MockTaskRepository, input models.Task) {
+				m.On("Create", mock.AnythingOfType("models.Task")).Return(models.Task{},
 					errors.New("db error"))
 			},
 			wantErr: true,
@@ -42,7 +43,7 @@ func TestCreateTask(t *testing.T) {
 			tt.mockSetup(mockRepo, tt.input)
 
 			service := NewTaskService(mockRepo)
-			_, err := service.CreateTask(tt.input.Name, tt.input.IsDone)
+			_, err := service.CreateTask(tt.input.Name, tt.input.IsDone, "test-user-id")
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -59,18 +60,18 @@ func TestGetAllTasks(t *testing.T) {
 	tests := []struct {
 		name      string
 		mockSetup func(m *MockTaskRepository)
-		want      []Task
+		want      []models.Task
 		wantErr   bool
 	}{
 		{
 			name: "успешное получение всех задач",
 			mockSetup: func(m *MockTaskRepository) {
-				m.On("GetAll").Return([]Task{
+				m.On("GetAll").Return([]models.Task{
 					{ID: "1", Name: "Task 1", IsDone: false},
 					{ID: "2", Name: "Task 2", IsDone: true},
 				}, nil)
 			},
-			want: []Task{
+			want: []models.Task{
 				{ID: "1", Name: "Task 1", IsDone: false},
 				{ID: "2", Name: "Task 2", IsDone: true},
 			},
@@ -110,27 +111,27 @@ func TestGetTaskByID(t *testing.T) {
 		name      string
 		id        string
 		mockSetup func(m *MockTaskRepository, id string)
-		want      Task
+		want      models.Task
 		wantErr   bool
 	}{
 		{
 			name: "успешное получение",
 			id:   "1",
 			mockSetup: func(m *MockTaskRepository, id string) {
-				m.On("GetByID", id).Return(Task{
+				m.On("GetByID", id).Return(models.Task{
 					ID: id, Name: "Test Task", IsDone: false}, nil)
 
 			},
-			want:    Task{ID: "1", Name: "Test Task", IsDone: false},
+			want:    models.Task{ID: "1", Name: "Test Task", IsDone: false},
 			wantErr: false,
 		},
 		{
 			name: "ошибка получения",
 			id:   "99",
 			mockSetup: func(m *MockTaskRepository, id string) {
-				m.On("GetByID", id).Return(Task{}, errors.New("not found"))
+				m.On("GetByID", id).Return(models.Task{}, errors.New("not found"))
 			},
-			want:    Task{},
+			want:    models.Task{},
 			wantErr: true,
 		},
 	}
@@ -158,35 +159,38 @@ func TestGetTaskByID(t *testing.T) {
 func TestUpdateTask(t *testing.T) {
 	name := "Updated"
 	isDone := true
+	userID := "new-user-id"
 
 	tests := []struct {
 		name      string
 		id        string
 		newName   *string
 		newDone   *bool
-		mockSetup func(m *MockTaskRepository, id string, existing Task, updated Task)
-		want      Task
+		newUserID *string
+		mockSetup func(m *MockTaskRepository, id string, existing models.Task, updated models.Task)
+		want      models.Task
 		wantErr   bool
 	}{
 		{
-			name:    "успешное обновление",
-			id:      "1",
-			newName: &name,
-			newDone: &isDone,
-			mockSetup: func(m *MockTaskRepository, id string, existing Task, updated Task) {
+			name:      "успешное обновление",
+			id:        "1",
+			newName:   &name,
+			newDone:   &isDone,
+			newUserID: &userID,
+			mockSetup: func(m *MockTaskRepository, id string, existing models.Task, updated models.Task) {
 				m.On("GetByID", id).Return(existing, nil)
 				m.On("Update", updated).Return(updated, nil)
 			},
-			want:    Task{ID: "1", Name: "Updated", IsDone: true},
+			want:    models.Task{ID: "1", Name: "Updated", IsDone: true, UserID: "new-user-id"},
 			wantErr: false,
 		},
 		{
 			name: "ошибка получения задачи",
 			id:   "99",
-			mockSetup: func(m *MockTaskRepository, id string, existing Task, updated Task) {
-				m.On("GetByID", id).Return(Task{}, errors.New("not found"))
+			mockSetup: func(m *MockTaskRepository, id string, existing models.Task, updated models.Task) {
+				m.On("GetByID", id).Return(models.Task{}, errors.New("not found"))
 			},
-			want:    Task{},
+			want:    models.Task{},
 			wantErr: true,
 		},
 	}
@@ -195,7 +199,7 @@ func TestUpdateTask(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockRepo := new(MockTaskRepository)
 
-			existing := Task{ID: tt.id, Name: "Old", IsDone: false}
+			existing := models.Task{ID: tt.id, Name: "Old", IsDone: false}
 			updated := existing
 			if tt.newName != nil {
 				updated.Name = *tt.newName
@@ -207,7 +211,7 @@ func TestUpdateTask(t *testing.T) {
 			tt.mockSetup(mockRepo, tt.id, existing, updated)
 
 			service := NewTaskService(mockRepo)
-			result, err := service.UpdateTask(tt.id, tt.newName, tt.newDone)
+			result, err := service.UpdateTask(tt.id, tt.newName, tt.newDone, tt.newUserID)
 
 			if tt.wantErr {
 				assert.Error(t, err)

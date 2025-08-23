@@ -41,6 +41,7 @@ func main() {
 
 	userStrictHandler := users.NewStrictHandler(usrHandler, nil)
 	users.RegisterHandlers(echoServer, userStrictHandler)
+
 	// Запуск сервера
 	err = echoServer.Start("localhost:8080")
 	if err != nil {

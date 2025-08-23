@@ -14,6 +14,14 @@ import (
 	strictecho "github.com/oapi-codegen/runtime/strictmiddleware/echo"
 )
 
+// Task defines model for Task.
+type Task struct {
+	ID     string `json:"id"`
+	IsDone bool   `json:"is_done"`
+	Name   string `json:"name"`
+	UserID string `json:"user_id"`
+}
+
 // User defines model for User.
 type User struct {
 	Email    string `json:"email"`
@@ -33,6 +41,14 @@ type UserUpdate struct {
 	Password *string `json:"password,omitempty"`
 }
 
+// UserWithTasks defines model for UserWithTasks.
+type UserWithTasks struct {
+	Email    string `json:"email"`
+	Id       string `json:"id"`
+	Password string `json:"password"`
+	Tasks    []Task `json:"tasks"`
+}
+
 // PostUsersJSONRequestBody defines body for PostUsers for application/json ContentType.
 type PostUsersJSONRequestBody = UserRequest
 
@@ -50,9 +66,15 @@ type ServerInterface interface {
 	// Delete user by ID
 	// (DELETE /users/{id})
 	DeleteUsersId(ctx echo.Context, id string) error
+	// Get user by ID with tasks
+	// (GET /users/{id})
+	GetUsersId(ctx echo.Context, id string) error
 	// Update user by ID
 	// (PATCH /users/{id})
 	PatchUsersId(ctx echo.Context, id string) error
+	// Get all tasks for individual user
+	// (GET /users/{id}/tasks)
+	GetUsersIdTasks(ctx echo.Context, id string) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -94,6 +116,22 @@ func (w *ServerInterfaceWrapper) DeleteUsersId(ctx echo.Context) error {
 	return err
 }
 
+// GetUsersId converts echo context to params.
+func (w *ServerInterfaceWrapper) GetUsersId(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "id", runtime.ParamLocationPath, ctx.Param("id"), &id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetUsersId(ctx, id)
+	return err
+}
+
 // PatchUsersId converts echo context to params.
 func (w *ServerInterfaceWrapper) PatchUsersId(ctx echo.Context) error {
 	var err error
@@ -107,6 +145,22 @@ func (w *ServerInterfaceWrapper) PatchUsersId(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.PatchUsersId(ctx, id)
+	return err
+}
+
+// GetUsersIdTasks converts echo context to params.
+func (w *ServerInterfaceWrapper) GetUsersIdTasks(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "id", runtime.ParamLocationPath, ctx.Param("id"), &id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetUsersIdTasks(ctx, id)
 	return err
 }
 
@@ -141,7 +195,9 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.GET(baseURL+"/users", wrapper.GetUsers)
 	router.POST(baseURL+"/users", wrapper.PostUsers)
 	router.DELETE(baseURL+"/users/:id", wrapper.DeleteUsersId)
+	router.GET(baseURL+"/users/:id", wrapper.GetUsersId)
 	router.PATCH(baseURL+"/users/:id", wrapper.PatchUsersId)
+	router.GET(baseURL+"/users/:id/tasks", wrapper.GetUsersIdTasks)
 
 }
 
@@ -202,6 +258,31 @@ func (response DeleteUsersId404Response) VisitDeleteUsersIdResponse(w http.Respo
 	return nil
 }
 
+type GetUsersIdRequestObject struct {
+	Id string `json:"id"`
+}
+
+type GetUsersIdResponseObject interface {
+	VisitGetUsersIdResponse(w http.ResponseWriter) error
+}
+
+type GetUsersId200JSONResponse UserWithTasks
+
+func (response GetUsersId200JSONResponse) VisitGetUsersIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetUsersId404Response struct {
+}
+
+func (response GetUsersId404Response) VisitGetUsersIdResponse(w http.ResponseWriter) error {
+	w.WriteHeader(404)
+	return nil
+}
+
 type PatchUsersIdRequestObject struct {
 	Id   string `json:"id"`
 	Body *PatchUsersIdJSONRequestBody
@@ -228,6 +309,31 @@ func (response PatchUsersId404Response) VisitPatchUsersIdResponse(w http.Respons
 	return nil
 }
 
+type GetUsersIdTasksRequestObject struct {
+	Id string `json:"id"`
+}
+
+type GetUsersIdTasksResponseObject interface {
+	VisitGetUsersIdTasksResponse(w http.ResponseWriter) error
+}
+
+type GetUsersIdTasks200JSONResponse []Task
+
+func (response GetUsersIdTasks200JSONResponse) VisitGetUsersIdTasksResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetUsersIdTasks404Response struct {
+}
+
+func (response GetUsersIdTasks404Response) VisitGetUsersIdTasksResponse(w http.ResponseWriter) error {
+	w.WriteHeader(404)
+	return nil
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Get all users
@@ -239,9 +345,15 @@ type StrictServerInterface interface {
 	// Delete user by ID
 	// (DELETE /users/{id})
 	DeleteUsersId(ctx context.Context, request DeleteUsersIdRequestObject) (DeleteUsersIdResponseObject, error)
+	// Get user by ID with tasks
+	// (GET /users/{id})
+	GetUsersId(ctx context.Context, request GetUsersIdRequestObject) (GetUsersIdResponseObject, error)
 	// Update user by ID
 	// (PATCH /users/{id})
 	PatchUsersId(ctx context.Context, request PatchUsersIdRequestObject) (PatchUsersIdResponseObject, error)
+	// Get all tasks for individual user
+	// (GET /users/{id}/tasks)
+	GetUsersIdTasks(ctx context.Context, request GetUsersIdTasksRequestObject) (GetUsersIdTasksResponseObject, error)
 }
 
 type StrictHandlerFunc = strictecho.StrictEchoHandlerFunc
@@ -333,6 +445,31 @@ func (sh *strictHandler) DeleteUsersId(ctx echo.Context, id string) error {
 	return nil
 }
 
+// GetUsersId operation middleware
+func (sh *strictHandler) GetUsersId(ctx echo.Context, id string) error {
+	var request GetUsersIdRequestObject
+
+	request.Id = id
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetUsersId(ctx.Request().Context(), request.(GetUsersIdRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetUsersId")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetUsersIdResponseObject); ok {
+		return validResponse.VisitGetUsersIdResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // PatchUsersId operation middleware
 func (sh *strictHandler) PatchUsersId(ctx echo.Context, id string) error {
 	var request PatchUsersIdRequestObject
@@ -358,6 +495,31 @@ func (sh *strictHandler) PatchUsersId(ctx echo.Context, id string) error {
 		return err
 	} else if validResponse, ok := response.(PatchUsersIdResponseObject); ok {
 		return validResponse.VisitPatchUsersIdResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetUsersIdTasks operation middleware
+func (sh *strictHandler) GetUsersIdTasks(ctx echo.Context, id string) error {
+	var request GetUsersIdTasksRequestObject
+
+	request.Id = id
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetUsersIdTasks(ctx.Request().Context(), request.(GetUsersIdTasksRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetUsersIdTasks")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetUsersIdTasksResponseObject); ok {
+		return validResponse.VisitGetUsersIdTasksResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}

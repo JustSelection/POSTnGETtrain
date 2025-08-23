@@ -1,4 +1,4 @@
-package userService
+package models
 
 import (
 	"time"
@@ -11,6 +11,7 @@ type User struct {
 	ID        string         `json:"id" gorm:"primary_key"`
 	Email     string         `json:"email" gorm:"unique;not null"`
 	Password  string         `json:"password" gorm:"not null"`
+	Tasks     []Task         `json:"tasks" gorm:"foreignkey:UserID;references:ID"` // Связь с задачами
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`

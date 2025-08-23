@@ -1,6 +1,7 @@
 package userService
 
 import (
+	"POSTnGETtrain/internal/models"
 	"errors"
 	"testing"
 
@@ -22,9 +23,9 @@ func TestCreateUser(t *testing.T) {
 			email:    "test@mail.ru",
 			password: "password123",
 			mockSetup: func(m *MockUserRepository, email, password string) {
-				m.On("Create", mock.MatchedBy(func(user *User) bool {
+				m.On("Create", mock.MatchedBy(func(user *models.User) bool {
 					return user.Email == email && user.Password == password
-				})).Return(&User{
+				})).Return(&models.User{
 					ID:       "test-id",
 					Email:    email,
 					Password: password,
@@ -37,7 +38,7 @@ func TestCreateUser(t *testing.T) {
 			email:    "duplicate@mail.ru",
 			password: "pass1",
 			mockSetup: func(m *MockUserRepository, email, password string) {
-				m.On("Create", mock.MatchedBy(func(user *User) bool {
+				m.On("Create", mock.MatchedBy(func(user *models.User) bool {
 					return user.Email == email && user.Password == password
 				})).Return(nil, ErrEmailExists)
 			},
@@ -49,7 +50,7 @@ func TestCreateUser(t *testing.T) {
 			email:    "create-error@mail.ru",
 			password: "pass1",
 			mockSetup: func(m *MockUserRepository, email, password string) {
-				m.On("Create", mock.AnythingOfType("*userService.User")).Return(nil, errors.New("create error"))
+				m.On("Create", mock.AnythingOfType("*models.User")).Return(nil, errors.New("create error"))
 			},
 			wantErr: true,
 		},
@@ -84,20 +85,20 @@ func TestGetUserByID(t *testing.T) {
 		name      string
 		id        string
 		mockSetup func(m *MockUserRepository, id string)
-		want      *User
+		want      *models.User
 		wantErr   bool
 	}{
 		{
 			name: "успешное получение",
 			id:   "user-id",
 			mockSetup: func(m *MockUserRepository, id string) {
-				m.On("GetByID", id).Return(&User{
+				m.On("GetByID", id).Return(&models.User{
 					ID:       id,
 					Email:    "user@mail.ru",
 					Password: "secret",
 				}, nil)
 			},
-			want: &User{
+			want: &models.User{
 				ID:       "user-id",
 				Email:    "user@mail.ru",
 				Password: "secret",
@@ -139,18 +140,18 @@ func TestGetAllUsers(t *testing.T) {
 	tests := []struct {
 		name      string
 		mockSetup func(m *MockUserRepository)
-		want      []User
+		want      []models.User
 		wantErr   bool
 	}{
 		{
 			name: "успешное получение всех юзеров",
 			mockSetup: func(m *MockUserRepository) {
-				m.On("GetAll").Return([]User{
+				m.On("GetAll").Return([]models.User{
 					{ID: "1", Email: "alabay@gmail.com", Password: "111"},
 					{ID: "2", Email: "barista@mail.ru", Password: "222"},
 				}, nil)
 			},
-			want: []User{
+			want: []models.User{
 				{ID: "1", Email: "alabay@gmail.com", Password: "111"},
 				{ID: "2", Email: "barista@mail.ru", Password: "222"},
 			},
@@ -198,7 +199,7 @@ func TestUpdateUser(t *testing.T) {
 		email     *string
 		password  *string
 		mockSetup func(m *MockUserRepository, id string)
-		want      *User
+		want      *models.User
 		wantErr   bool
 	}{
 		{
@@ -207,20 +208,20 @@ func TestUpdateUser(t *testing.T) {
 			email:    &newEmail,
 			password: &newPass,
 			mockSetup: func(m *MockUserRepository, id string) {
-				m.On("GetByID", id).Return(&User{
+				m.On("GetByID", id).Return(&models.User{
 					ID:       id,
 					Email:    "old@mail.ru",
 					Password: "oldpass",
 				}, nil)
-				m.On("Update", mock.MatchedBy(func(user *User) bool {
+				m.On("Update", mock.MatchedBy(func(user *models.User) bool {
 					return user.ID == id && user.Email == newEmail && user.Password == newPass
-				})).Return(&User{
+				})).Return(&models.User{
 					ID:       id,
 					Email:    newEmail,
 					Password: newPass,
 				}, nil)
 			},
-			want: &User{
+			want: &models.User{
 				ID:       "user-id",
 				Email:    "new@mail.ru",
 				Password: "newpass",
@@ -244,20 +245,20 @@ func TestUpdateUser(t *testing.T) {
 			email:    &newEmail,
 			password: nil,
 			mockSetup: func(m *MockUserRepository, id string) {
-				m.On("GetByID", id).Return(&User{
+				m.On("GetByID", id).Return(&models.User{
 					ID:       id,
 					Email:    "old@mail.ru",
 					Password: "oldpass",
 				}, nil)
-				m.On("Update", mock.MatchedBy(func(user *User) bool {
+				m.On("Update", mock.MatchedBy(func(user *models.User) bool {
 					return user.ID == id && user.Email == newEmail && user.Password == "oldpass"
-				})).Return(&User{
+				})).Return(&models.User{
 					ID:       id,
 					Email:    newEmail,
 					Password: "oldpass",
 				}, nil)
 			},
-			want: &User{
+			want: &models.User{
 				ID:       "user-id",
 				Email:    "new@mail.ru",
 				Password: "oldpass",
@@ -269,20 +270,20 @@ func TestUpdateUser(t *testing.T) {
 			id:       "user-id",
 			password: &newPass,
 			mockSetup: func(m *MockUserRepository, id string) {
-				m.On("GetByID", id).Return(&User{
+				m.On("GetByID", id).Return(&models.User{
 					ID:       id,
 					Email:    "old@mail.ru",
 					Password: "oldpass",
 				}, nil)
-				m.On("Update", mock.MatchedBy(func(user *User) bool {
+				m.On("Update", mock.MatchedBy(func(user *models.User) bool {
 					return user.ID == id && user.Email == "old@mail.ru" && user.Password == newPass
-				})).Return(&User{
+				})).Return(&models.User{
 					ID:       id,
 					Email:    "old@mail.ru",
 					Password: newPass,
 				}, nil)
 			},
-			want: &User{
+			want: &models.User{
 				ID:       "user-id",
 				Email:    "old@mail.ru",
 				Password: "newpass",
@@ -408,6 +409,79 @@ func TestEmailExists(t *testing.T) {
 
 				mockRepo.AssertExpectations(t)
 			}
+		})
+	}
+}
+
+func TestGetTasksForUser(t *testing.T) {
+	tests := []struct {
+		name      string
+		userID    string
+		mockSetup func(m *MockUserRepository, userID string)
+		want      []models.Task
+		wantErr   bool
+	}{
+		{
+			name:   "успешное получение задач пользователя",
+			userID: "user-id",
+			mockSetup: func(m *MockUserRepository, userID string) {
+				m.On("GetByID", userID).Return(&models.User{
+					ID:       userID,
+					Email:    "test@mail.ru",
+					Password: "pass123",
+				}, nil)
+				m.On("GetTasksForUser", userID).Return([]models.Task{
+					{ID: "task-1", Name: "Task 1", IsDone: false},
+					{ID: "task-2", Name: "Task 2", IsDone: true},
+				}, nil)
+			},
+			want: []models.Task{
+				{ID: "task-1", Name: "Task 1", IsDone: false},
+				{ID: "task-2", Name: "Task 2", IsDone: true},
+			},
+			wantErr: false,
+		},
+		{
+			name:   "пользователь не найден",
+			userID: "nonexistent",
+			mockSetup: func(m *MockUserRepository, userID string) {
+				m.On("GetByID", userID).Return(nil, ErrUserNotFound)
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:   "ошибка получения задач",
+			userID: "user-1",
+			mockSetup: func(m *MockUserRepository, userID string) {
+				m.On("GetByID", userID).Return(&models.User{
+					ID:       userID,
+					Email:    "test@mail.ru",
+					Password: "pass123",
+				}, nil)
+				m.On("GetTasksForUser", userID).Return(nil, errors.New("db error"))
+			},
+			want:    nil,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockRepo := new(MockUserRepository)
+			tt.mockSetup(mockRepo, tt.userID)
+
+			service := NewUserService(mockRepo)
+			result, err := service.GetTasksForUser(tt.userID)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, result)
+			}
+
+			mockRepo.AssertExpectations(t)
 		})
 	}
 }

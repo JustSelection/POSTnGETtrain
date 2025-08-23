@@ -101,3 +101,52 @@ func (h *UserHandler) DeleteUsersId(_ context.Context, request users.DeleteUsers
 	// Возвращаем успешный ответ без содержимого (204 No Content)
 	return users.DeleteUsersId204Response{}, nil
 }
+
+func (h *UserHandler) GetUsersIdTasks(_ context.Context, request users.GetUsersIdTasksRequestObject) (
+	users.GetUsersIdTasksResponseObject, error) {
+	tasks, err := h.service.GetTasksForUser(request.Id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user tasks: %w", err)
+	}
+
+	response := make([]users.Task, len(tasks))
+	for i, t := range tasks {
+		response[i] = users.Task{
+			ID:     t.ID,
+			Name:   t.Name,
+			IsDone: t.IsDone,
+			UserID: t.UserID,
+		}
+	}
+
+	return users.GetUsersIdTasks200JSONResponse(response), nil
+}
+
+// GetUsersId - Метод для получения пользователя с задачами
+func (h *UserHandler) GetUsersId(_ context.Context, request users.GetUsersIdRequestObject) (users.GetUsersIdResponseObject, error) {
+	userWithTasks, err := h.service.GetUserWithTasks(request.Id)
+	if err != nil {
+		if errors.Is(err, userService.ErrUserNotFound) {
+			return users.GetUsersId404Response{}, nil
+		}
+		return nil, fmt.Errorf("handler: failed to get user by id %s: %w", request.Id, err)
+	}
+
+	// Преобразуем в формат ответа
+	taskResponse := make([]users.Task, len(userWithTasks.Tasks))
+	for i, task := range userWithTasks.Tasks {
+		taskResponse[i] = users.Task{
+			ID:     task.ID,
+			Name:   task.Name,
+			IsDone: task.IsDone,
+			UserID: task.UserID,
+		}
+	}
+
+	return users.GetUsersId200JSONResponse{
+		Id:       userWithTasks.ID,
+		Email:    userWithTasks.Email,
+		Password: userWithTasks.Password,
+		Tasks:    taskResponse, // Найух эти указатели
+	}, nil
+}
