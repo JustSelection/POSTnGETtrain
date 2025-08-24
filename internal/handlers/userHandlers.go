@@ -124,7 +124,7 @@ func (h *UserHandler) GetUsersIdTasks(_ context.Context, request users.GetUsersI
 
 // GetUsersId - Метод для получения пользователя с задачами
 func (h *UserHandler) GetUsersId(_ context.Context, request users.GetUsersIdRequestObject) (users.GetUsersIdResponseObject, error) {
-	userWithTasks, err := h.service.GetUserWithTasks(request.Id)
+	userWithTasks, err := h.service.GetUserByID(request.Id)
 	if err != nil {
 		if errors.Is(err, userService.ErrUserNotFound) {
 			return users.GetUsersId404Response{}, nil
@@ -139,14 +139,12 @@ func (h *UserHandler) GetUsersId(_ context.Context, request users.GetUsersIdRequ
 			ID:     task.ID,
 			Name:   task.Name,
 			IsDone: task.IsDone,
-			UserID: task.UserID,
 		}
 	}
 
 	return users.GetUsersId200JSONResponse{
-		Id:       userWithTasks.ID,
+		ID:       userWithTasks.ID,
 		Email:    userWithTasks.Email,
 		Password: userWithTasks.Password,
-		Tasks:    taskResponse, // Найух эти указатели
 	}, nil
 }

@@ -133,7 +133,7 @@ paths:
 
   /users/{id}:
     get:
-      summary: Get user by ID with tasks
+      summary: Get user by ID
       tags:
         - users
       parameters:
@@ -144,11 +144,11 @@ paths:
             type: string
       responses:
         '200':
-          description: User details with tasks
+          description: User details
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserWithTasks'
+                $ref: '#/components/schemas/User'
         '404':
           description: User not found
     patch:
@@ -309,12 +309,7 @@ components:
           type: string
         password:
           type: string
-        tasks:
-          type: array
-          items:
-            $ref: '#/components/schemas/Task'
       required:
         - id
         - email
         - password
-        - tasks

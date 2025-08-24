@@ -3,7 +3,6 @@ package userService
 import (
 	"POSTnGETtrain/internal/models"
 	"errors"
-	"fmt"
 
 	"github.com/google/uuid"
 )
@@ -22,7 +21,6 @@ type UserService interface {
 	DeleteUser(id string) error
 	GetUserByID(id string) (*models.User, error)
 	GetTasksForUser(userID string) ([]models.Task, error)
-	GetUserWithTasks(id string) (*models.User, error)
 }
 
 // Реализация UserService
@@ -75,7 +73,6 @@ func (s *userService) DeleteUser(id string) error {
 	return s.repo.Delete(id) // Удаляем через репозиторий
 }
 
-// Пока не работает
 func (s *userService) GetUserByID(id string) (*models.User, error) {
 	user, err := s.repo.GetByID(id)
 	if err != nil {
@@ -91,23 +88,4 @@ func (s *userService) GetTasksForUser(userID string) ([]models.Task, error) {
 	}
 	// Получаем задачи через taskService
 	return s.repo.GetTasksForUser(userID)
-}
-
-func (s *userService) GetUserWithTasks(id string) (*models.User, error) {
-	// Получаем пользователя
-	user, err := s.repo.GetByID(id)
-	if err != nil {
-		return nil, err
-	}
-
-	// Получаем задачи пользователя
-	tasks, err := s.repo.GetTasksForUser(id)
-	if err != nil {
-		return nil, fmt.Errorf("service: could not get tasks for user %s: %w", id, err)
-	}
-
-	// Заполняем поле Tasks
-	user.Tasks = tasks
-
-	return user, nil
 }

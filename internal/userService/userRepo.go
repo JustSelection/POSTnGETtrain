@@ -17,7 +17,6 @@ type UserRepository interface {
 	Delete(id string) error
 	EmailExists(email string) (bool, error)
 	GetTasksForUser(userID string) ([]models.Task, error)
-	GetUserWithTasks(userID string) (*models.User, error)
 }
 
 // userRepository - реализация UserRepository с использованием GORM
@@ -92,16 +91,4 @@ func (r *userRepository) GetTasksForUser(userID string) ([]models.Task, error) {
 		return nil, fmt.Errorf("repo: could not get tasks for user %s: %w", userID, err)
 	}
 	return tasks, nil
-}
-
-func (r *userRepository) GetUserWithTasks(userID string) (*models.User, error) {
-	var user models.User
-	err := r.db.Preload("Tasks", "deleted_at IS NULL").Where("id = ?", userID).First(&user).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrUserNotFound
-	}
-	if err != nil {
-		return nil, fmt.Errorf("repo: could not get user with tasks %s: %w", userID, err)
-	}
-	return &user, nil
 }

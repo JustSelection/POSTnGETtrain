@@ -41,14 +41,6 @@ type UserUpdate struct {
 	Password *string `json:"password,omitempty"`
 }
 
-// UserWithTasks defines model for UserWithTasks.
-type UserWithTasks struct {
-	Email    string `json:"email"`
-	Id       string `json:"id"`
-	Password string `json:"password"`
-	Tasks    []Task `json:"tasks"`
-}
-
 // PostUsersJSONRequestBody defines body for PostUsers for application/json ContentType.
 type PostUsersJSONRequestBody = UserRequest
 
@@ -66,7 +58,7 @@ type ServerInterface interface {
 	// Delete user by ID
 	// (DELETE /users/{id})
 	DeleteUsersId(ctx echo.Context, id string) error
-	// Get user by ID with tasks
+	// Get user by ID
 	// (GET /users/{id})
 	GetUsersId(ctx echo.Context, id string) error
 	// Update user by ID
@@ -266,7 +258,7 @@ type GetUsersIdResponseObject interface {
 	VisitGetUsersIdResponse(w http.ResponseWriter) error
 }
 
-type GetUsersId200JSONResponse UserWithTasks
+type GetUsersId200JSONResponse User
 
 func (response GetUsersId200JSONResponse) VisitGetUsersIdResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -345,7 +337,7 @@ type StrictServerInterface interface {
 	// Delete user by ID
 	// (DELETE /users/{id})
 	DeleteUsersId(ctx context.Context, request DeleteUsersIdRequestObject) (DeleteUsersIdResponseObject, error)
-	// Get user by ID with tasks
+	// Get user by ID
 	// (GET /users/{id})
 	GetUsersId(ctx context.Context, request GetUsersIdRequestObject) (GetUsersIdResponseObject, error)
 	// Update user by ID
